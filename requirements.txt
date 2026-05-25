@@ -1,0 +1,16 @@
+# Stack Core (Obligatorio)
+Django>=5.0,<5.1
+djangorestframework==3.15.1
+psycopg2-binary==2.9.9
+redis==5.0.4
+celery==5.4.0
+channels==4.1.0
+daphne==4.1.2
+
+# Utilidades Financieras y Estado
+django-fsm==2.8.1
+
+
+# Calidad de Código y Testing
+pytest-django==4.8.0
+hypothesis==6.102.4
