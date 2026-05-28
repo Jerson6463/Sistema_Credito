@@ -25,12 +25,13 @@ SECRET_KEY = 'django-insecure-sjt_v=)1q=vg&oxnq+=4sr(%74!mye=0ad3kepe@j)$rhk+t9%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,web').split(',')
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,13 +40,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Librerías de terceros instaladas
+    'channels',
     'rest_framework',
     'django_fsm',
     
     # Nuestras aplicaciones (Dominios)
     'users',
     'wallet',
-    'betting',
+    'betting.apps.BettingConfig',
     'audit',
 ]
 
@@ -78,6 +80,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'core.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'
 
 
 # Database
@@ -89,11 +92,10 @@ DATABASES = {
         'NAME': os.environ.get('POSTGRES_DB', 'fairbet_db'),
         'USER': os.environ.get('POSTGRES_USER', 'admin'),
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'adminpassword').strip(),
-        'HOST': 'db',
-        'PORT': '5432',
+        'HOST': os.environ.get('POSTGRES_HOST', 'db'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -125,6 +127,37 @@ USE_I18N = True
 
 USE_TZ = True
 
+REDIS_HOST = os.environ.get('REDIS_HOST', 'redis')
+REDIS_PORT = int(os.environ.get('REDIS_PORT', '6379'))
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [(REDIS_HOST, REDIS_PORT)],
+        },
+    },
+}
+
+CELERY_BROKER_URL = os.environ.get(
+    'CELERY_BROKER_URL',
+    f'redis://{REDIS_HOST}:{REDIS_PORT}/1',
+)
+CELERY_RESULT_BACKEND = os.environ.get(
+    'CELERY_RESULT_BACKEND',
+    f'redis://{REDIS_HOST}:{REDIS_PORT}/2',
+)
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+
+# Duración por defecto de suspensión in-play ante eventos críticos (gol, expulsión).
+INPLAY_MARKET_SUSPENSION_SECONDS = int(
+    os.environ.get('INPLAY_MARKET_SUSPENSION_SECONDS', '30')
+)
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -135,3 +168,12 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}

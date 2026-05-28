@@ -1,3 +1,4 @@
+# Datos persistentes en D:\Docker\fairbet (evita llenar disco C:)
 services:
   db:
     image: postgres:15-alpine
@@ -6,16 +7,18 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - D:/Docker/fairbet/postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    volumes:
+      - D:/Docker/fairbet/redis_data:/data
 
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    command: daphne -b 0.0.0.0 -p 8000 core.asgi:application
     volumes:
       - .:/app
     ports:
@@ -37,6 +40,3 @@ services:
       - db
       - redis
       - web
-
-volumes:
-  postgres_data:
