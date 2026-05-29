@@ -19,6 +19,9 @@ echo "PostgreSQL listo."
 echo "Aplicando migraciones..."
 python manage.py migrate --noinput
 
+echo "Recolectando archivos estáticos..."
+python manage.py collectstatic --noinput
+
 echo "Cargando fixtures de eventos..."
 python manage.py loaddata fixtures/seed_eventos.json || true
 
