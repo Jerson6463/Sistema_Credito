@@ -16,6 +16,11 @@ except Exception:
 done
 echo "PostgreSQL listo."
 
+if [ "$1" = "celery" ]; then
+    echo "Iniciando Celery..."
+    exec "$@"
+fi
+
 echo "Aplicando migraciones..."
 python manage.py migrate --noinput
 

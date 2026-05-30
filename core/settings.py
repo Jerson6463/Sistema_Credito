@@ -103,6 +103,13 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_TIMEZONE = "America/Lima"
 
+CELERY_BEAT_SCHEDULE = {
+    "detectar-actividad-sospechosa-cada-15-minutos": {
+        "task": "betting.tasks.detectar_actividad_sospechosa",
+        "schedule": 900.0,
+    },
+}
+
 # ── Autenticación ─────────────────────────────────────────────────────────────
 AUTH_USER_MODEL = "users.Usuario"
 
