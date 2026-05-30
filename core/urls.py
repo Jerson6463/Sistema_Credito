@@ -124,8 +124,8 @@ def login_page(request):
         {'username': 'superadmin',       'rol': 'Super Admin',    'icono': 'crown',         'color': 'var(--primary)'},
         {'username': 'admin_fairbet',    'rol': 'Admin',          'icono': 'shield-halved', 'color': 'var(--primary)'},
         {'username': 'operador_fairbet', 'rol': 'Operador/Staff', 'icono': 'user-tie',      'color': '#3b82f6'},
-        {'username': 'jugador_nuevo',    'rol': 'Jugador · S/500','icono': 'user',          'color': 'var(--text-3)'},
-        {'username': 'jugador_verificado','rol':'Jugador · S/500','icono': 'user',          'color': 'var(--text-3)'},
+        {'username': 'jugador_nuevo',    'rol': 'Jugador · 500 Fichas','icono': 'user',          'color': 'var(--text-3)'},
+        {'username': 'jugador_verificado','rol':'Jugador · 500 Fichas','icono': 'user',          'color': 'var(--text-3)'},
     ]
     return render(request, 'login.html', {'error': error, 'cuentas_prueba': cuentas_prueba})
 
@@ -244,26 +244,97 @@ def mis_apuestas_page(request):
     if request.user.is_staff:
         return redirect('panel_admin')
 
-    from betting.models import Apuesta
+    from betting.models import Apuesta, ApuestaCombinada
 
     estado_filtro = request.GET.get('estado', '')
-    qs = Apuesta.objects.filter(usuario=request.user).select_related(
-        'cuota__mercado__evento'
-    ).order_by('-creado_en')
+    
+    qs_s = Apuesta.objects.filter(usuario=request.user).select_related('cuota__mercado__evento')
+    qs_c = ApuestaCombinada.objects.filter(usuario=request.user).prefetch_related('selecciones')
 
     if estado_filtro:
-        qs = qs.filter(estado=estado_filtro)
+        qs_s = qs_s.filter(estado=estado_filtro)
+        qs_c = qs_c.filter(estado=estado_filtro)
 
-    todas = Apuesta.objects.filter(usuario=request.user)
+    def _format_sel(raw, tipo, local, visitante):
+        s = raw.lower()
+        if tipo == '1X2':
+            if s == '1': return f"Gana {local}"
+            if s == '2': return f"Gana {visitante}"
+            if s in ('x', 'empate'): return "Empate"
+        elif tipo == 'over_under':
+            if 'over' in s: return "Más de 2.5 goles"
+            if 'under' in s: return "Menos de 2.5 goles"
+        elif tipo == 'btts':
+            if s == 'si': return "Ambos equipos anotan"
+            if s == 'no': return "Ambos no anotan"
+        elif tipo == 'handicap':
+            if 'local' in s: return f"Hándicap {local} -1"
+            if 'visitante' in s: return f"Hándicap {visitante} +1"
+        return raw
+
+    apuestas_lista = []
+    for a in qs_s:
+        ev = a.cuota.mercado.evento
+        apuestas_lista.append({
+            'id': a.id,
+            'is_combinada': False,
+            'evento_nombre': ev.nombre,
+            'seleccion': _format_sel(a.cuota.seleccion, a.cuota.mercado.tipo, ev.equipo_local, ev.equipo_visitante),
+            'mercado': a.cuota.mercado.get_tipo_display(),
+            'cuota': a.cuota_al_apostar,
+            'monto_apostado': a.monto_apostado,
+            'pago_potencial': a.pago_potencial,
+            'estado': a.estado,
+            'creado_en': a.creado_en,
+        })
+        
+    for c in qs_c:
+        grupos_dict = {}
+        for sel in c.selecciones.all():
+            ev = sel.mercado.evento
+            ev_nombre = ev.nombre
+            if ev_nombre not in grupos_dict:
+                grupos_dict[ev_nombre] = []
+            
+            human_sel = _format_sel(sel.seleccion, sel.mercado.tipo, ev.equipo_local, ev.equipo_visitante)
+            
+            grupos_dict[ev_nombre].append({
+                'seleccion': human_sel,
+                'cuota': sel.valor
+            })
+            
+        selecciones_agrupadas = [{'evento': ev, 'items': items} for ev, items in grupos_dict.items()]
+
+        apuestas_lista.append({
+            'id': c.id,
+            'is_combinada': True,
+            'evento_nombre': 'Apuesta Combinada',
+            'selecciones_agrupadas': selecciones_agrupadas,
+            'mercado': 'Múltiple',
+            'cuota': c.cuota_total,
+            'monto_apostado': c.monto_apostado,
+            'pago_potencial': c.pago_potencial,
+            'estado': c.estado,
+            'creado_en': c.creado_en,
+        })
+
+    apuestas_lista.sort(key=lambda x: x['creado_en'], reverse=True)
+
+    todas_s = Apuesta.objects.filter(usuario=request.user)
+    todas_c = ApuestaCombinada.objects.filter(usuario=request.user)
+    
+    def count_est(est):
+        return todas_s.filter(estado=est).count() + todas_c.filter(estado=est).count()
+
     stats = {
-        'total':      todas.count(),
-        'ganadas':    todas.filter(estado='ganada').count(),
-        'perdidas':   todas.filter(estado='perdida').count(),
-        'pendientes': todas.filter(estado='aceptada').count(),
+        'total':      todas_s.count() + todas_c.count(),
+        'ganadas':    count_est('ganada'),
+        'perdidas':   count_est('perdida'),
+        'pendientes': count_est('aceptada'),
     }
 
     return render(request, 'mis_apuestas.html', {
-        'apuestas':      qs,
+        'apuestas':      apuestas_lista,
         'stats':         stats,
         'estado_filtro': estado_filtro,
     })

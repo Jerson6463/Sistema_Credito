@@ -14,6 +14,8 @@ from betting.exceptions import (
     MontoFueraDeRangoError,
     SeleccionMutuamenteExcluyenteError,
     UsuarioNoHabilitadoError,
+    CuotaCambiadaError,
+    SaldoInsuficienteApuestaError,
 )
 from betting.models import Apuesta, ApuestaCombinada, Evento, EstadoEvento
 from betting.serializers import (
@@ -78,14 +80,20 @@ class CrearApuestaView(APIView):
                 usuario=request.user,
                 cuota=datos["cuota_id"],
                 monto=datos["monto"],
+                cuota_esperada=datos["cuota_esperada"],
                 clave_idempotencia=datos["clave_idempotencia"],
                 ip_origen=ip,
+            )
+        except CuotaCambiadaError as e:
+            return Response(
+                {"error": str(e), "nueva_cuota": str(e.nueva_cuota)},
+                status=status.HTTP_409_CONFLICT
             )
         except UsuarioNoHabilitadoError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except (EventoNoDisponibleError, MercadoCerradoError, MontoFueraDeRangoError) as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except SaldoInsuficienteError as e:
+        except (SaldoInsuficienteError, SaldoInsuficienteApuestaError) as e:
             return Response({"error": str(e)}, status=status.HTTP_402_PAYMENT_REQUIRED)
 
         return Response({
@@ -197,10 +205,11 @@ class ApuestaInPlayView(APIView):
 
         cuota_id = request.data.get("cuota_id")
         monto = request.data.get("monto")
+        cuota_esperada = request.data.get("cuota_esperada")
         clave = request.data.get("clave_idempotencia", str(uuid_mod.uuid4()))
 
-        if not cuota_id or not monto:
-            return Response({"error": "cuota_id y monto son requeridos."}, status=status.HTTP_400_BAD_REQUEST)
+        if not cuota_id or not monto or not cuota_esperada:
+            return Response({"error": "cuota_id, monto y cuota_esperada son requeridos."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             cuota = Cuota.objects.select_related("mercado__evento").get(pk=cuota_id, activa=True)
@@ -229,8 +238,14 @@ class ApuestaInPlayView(APIView):
                 usuario=request.user,
                 cuota=cuota,
                 monto=Dec(str(monto)),
+                cuota_esperada=Dec(str(cuota_esperada)),
                 clave_idempotencia=uuid_mod.UUID(str(clave)),
                 ip_origen=request.META.get("REMOTE_ADDR"),
+            )
+        except CuotaCambiadaError as e:
+            return Response(
+                {"error": str(e), "nueva_cuota": str(e.nueva_cuota)},
+                status=status.HTTP_409_CONFLICT
             )
         except UsuarioNoHabilitadoError as e:
             return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
@@ -422,9 +437,13 @@ class CrearApuestaCombinada_View(APIView):
         datos = serializer.validated_data
 
         try:
+            cuotas_instances = datos["cuota_ids"]
+            if len(cuotas_instances) < 2:
+                return Response({"error": "Faltan cuotas."}, status=status.HTTP_400_BAD_REQUEST)
+
             combinada = crear_apuesta_combinada(
                 usuario=request.user,
-                cuotas=datos["cuota_ids"],
+                cuotas=cuotas_instances,
                 monto=datos["monto"],
                 clave_idempotencia=datos["clave_idempotencia"],
                 ip_origen=request.META.get("REMOTE_ADDR"),
@@ -435,7 +454,7 @@ class CrearApuestaCombinada_View(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except (EventoNoDisponibleError, MercadoCerradoError, MontoFueraDeRangoError) as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        except SaldoInsuficienteError as e:
+        except (SaldoInsuficienteError, SaldoInsuficienteApuestaError) as e:
             return Response({"error": str(e)}, status=status.HTTP_402_PAYMENT_REQUIRED)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

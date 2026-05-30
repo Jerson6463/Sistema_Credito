@@ -83,16 +83,38 @@
           <tr>
             <td style="max-width:180px">
               <div style="font-weight:600;font-size:13px;line-height:1.4">
-                {{ a.cuota.mercado.evento.nombre }}
+                {{ a.evento_nombre }}
               </div>
             </td>
-            <td style="font-weight:700">{{ a.cuota.seleccion }}</td>
-            <td style="color:var(--text-2);font-size:13px">{{ a.cuota.mercado.get_tipo_display }}</td>
-            <td style="font-weight:700;color:var(--primary)">@ {{ a.cuota_al_apostar|floatformat:2 }}</td>
-            <td style="font-variant-numeric:tabular-nums">S/ {{ a.monto_apostado|floatformat:2 }}</td>
+            <td style="font-weight:700">
+              {% if a.is_combinada %}
+                <div style="display:flex; flex-direction:column; gap:8px; font-size: 11px;">
+                  {% for grupo in a.selecciones_agrupadas %}
+                    <div style="background:var(--bg-hover); border-radius:4px; border:1px solid var(--border); min-width: 140px; overflow: hidden;">
+                      <div style="background:rgba(255,255,255,0.03); color:var(--text-3); padding:4px 8px; border-bottom:1px solid var(--border); font-weight:600;">
+                        {{ grupo.evento }}
+                      </div>
+                      <div style="padding:4px 8px;">
+                        {% for item in grupo.items %}
+                          <div style="display:flex; justify-content:space-between; margin-bottom:{% if not forloop.last %}4px{% else %}0{% endif %};">
+                            <span>{{ item.seleccion }}</span>
+                            <span style="color:var(--primary); font-weight:800; margin-left:12px;">{{ item.cuota|floatformat:2 }}</span>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                {{ a.seleccion }}
+              {% endif %}
+            </td>
+            <td style="color:var(--text-2);font-size:13px">{{ a.mercado }}</td>
+            <td style="font-weight:700;color:var(--primary)">{{ a.cuota|floatformat:2 }}</td>
+            <td style="font-variant-numeric:tabular-nums">{{ a.monto_apostado|floatformat:2 }} Fichas</td>
             <td style="font-variant-numeric:tabular-nums;font-weight:600;
                        color:{% if a.estado == 'ganada' %}var(--green){% else %}inherit{% endif %}">
-              S/ {{ a.pago_potencial|floatformat:2 }}
+              {{ a.pago_potencial|floatformat:2 }} Fichas
             </td>
             <td>
               {% if a.estado == 'aceptada' %}
@@ -113,9 +135,9 @@
               {{ a.creado_en|date:"d M, H:i" }}
             </td>
             <td>
-              {% if a.estado == 'aceptada' %}
+              {% if a.estado == 'aceptada' and not a.is_combinada %}
               <button class="btn btn-ghost btn-xs"
-                      onclick="abrirCO('{{ a.id }}', {{ a.monto_apostado }}, {{ a.cuota_al_apostar }}, '{{ a.cuota.seleccion|escapejs }}', '{{ a.cuota.mercado.evento.nombre|escapejs }}')">
+                      onclick="abrirCO('{{ a.id }}', {{ a.monto_apostado }}, {{ a.cuota }}, '{{ a.seleccion|escapejs }}', '{{ a.evento_nombre|escapejs }}')">
                 <i class="fa-solid fa-sack-dollar"></i> Cash-out
               </button>
               {% endif %}
@@ -175,11 +197,11 @@ function abrirCO(id, monto, cuota, sel, evento) {
       </div>
       <div style="display:flex;justify-content:space-between">
         <span style="color:var(--text-2)">Apostado</span>
-        <span style="font-weight:700">S/ ${parseFloat(monto).toFixed(2)}</span>
+        <span style="font-weight:700">${parseFloat(monto).toFixed(2)} Fichas</span>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
         <span style="color:var(--text-2)">Recibirás aprox.</span>
-        <span style="font-size:22px;font-weight:900;color:var(--primary)">S/ ${est}</span>
+        <span style="font-size:22px;font-weight:900;color:var(--primary)">${est} Fichas</span>
       </div>
       <div style="font-size:11px;color:var(--text-3)">
         <i class="fa-solid fa-circle-info"></i> Factor casa 90% aplicado.
@@ -202,7 +224,7 @@ async function ejecutarCO() {
     const d = await res.json();
     if (res.ok) {
       cerrarCO();
-      toast(`Cash-out exitoso. Recibiste: S/ ${parseFloat(d.monto_recibido).toFixed(2)}`, 'success');
+      toast(`Cash-out exitoso. Recibiste: ${parseFloat(d.monto_recibido).toFixed(2)} Fichas`, 'success');
       setTimeout(() => location.reload(), 1200);
     } else {
       toast(d.error || 'Error en cash-out', 'error');

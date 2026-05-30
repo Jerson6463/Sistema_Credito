@@ -229,6 +229,17 @@ input, select, textarea { font-family: inherit; }
   padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
 }
 .betslip-header h3 { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.betslip-tabs {
+  display: flex; background: var(--bg-hover); border-radius: 20px;
+  padding: 4px; margin: 10px 16px; gap: 4px; border-bottom: none;
+}
+.bs-tab {
+  flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--text-2); cursor: pointer; transition: var(--transition);
+  border-bottom: none; background: transparent; border-radius: 16px;
+}
+.bs-tab:hover { color: var(--text); }
+.bs-tab.active { background: var(--bg-card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
 .bs-count {
   background: var(--primary); color: #0e0e1a;
   min-width: 20px; height: 20px; border-radius: 10px;
@@ -249,6 +260,17 @@ input, select, textarea { font-family: inherit; }
 .bs-evento { font-size: 11px; color: var(--text-2); margin-bottom: 3px; }
 .bs-seleccion { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
 .bs-odds { font-size: 13px; color: var(--primary); font-weight: 600; }
+.bs-grupo { border-bottom: 1px solid var(--border); }
+.bs-grupo-header { padding: 8px 16px; background: var(--bg-hover); font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; }
+.bs-grupo .bs-item { border-bottom: none; border-top: 1px solid var(--border-2); }
+.bs-grupo .bs-item:first-child { border-top: none; }
+.bs-monto-sm {
+  width: 100%; background: var(--bg-input); border: 1px solid var(--border-2);
+  border-radius: var(--radius); padding: 6px 10px;
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin-top: 8px; margin-bottom: 4px;
+}
+.bs-monto-sm:focus { border-color: var(--primary); outline: none; }
 .betslip-foot { padding: 16px; }
 .bs-monto {
   width: 100%; background: var(--bg-input); border: 1px solid var(--border-2);

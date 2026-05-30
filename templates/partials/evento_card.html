@@ -67,9 +67,9 @@
              onclick="addToBetslip(
                {{ c_data.cuota.id }},
                '{{ c_data.label }}{% if c_data.sub %} {{ c_data.sub }}{% endif %}',
-               {{ c_data.cuota.valor }},
+               '{{ c_data.cuota.valor|stringformat:"s" }}',
                '{{ ev_data.evento.nombre|escapejs }}',
-               '{{ m_data.mercado.tipo }}'
+               '{{ m_data.mercado.id }}'
              )">
           <div class="qlabel">
             {{ c_data.label }}

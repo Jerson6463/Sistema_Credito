@@ -47,6 +47,7 @@ class EventoListSerializer(serializers.ModelSerializer):
 class CrearApuestaSerializer(serializers.Serializer):
     cuota_id = serializers.IntegerField()
     monto = serializers.DecimalField(max_digits=18, decimal_places=4, min_value=Decimal("0.0001"))
+    cuota_esperada = serializers.DecimalField(max_digits=18, decimal_places=4, required=True)
     clave_idempotencia = serializers.UUIDField(required=False)
 
     def validate_cuota_id(self, valor):

@@ -28,3 +28,10 @@ class SeleccionMutuamenteExcluyenteError(Exception):
 
 class CashOutNoDisponibleError(Exception):
     """No es posible hacer cash-out en el estado actual de la apuesta."""
+
+
+class CuotaCambiadaError(Exception):
+    """La cuota ha cambiado desde que el usuario abrió el ticket. Se requiere reconfirmación."""
+    def __init__(self, mensaje, nueva_cuota):
+        super().__init__(mensaje)
+        self.nueva_cuota = nueva_cuota

@@ -21,6 +21,7 @@ from betting.exceptions import (
     SeleccionMutuamenteExcluyenteError,
     UsuarioNoHabilitadoError,
     SaldoInsuficienteApuestaError,
+    CuotaCambiadaError,
 )
 from betting.models import (
     Apuesta, ApuestaCombinada, Cuota, EstadoApuesta,
@@ -88,6 +89,7 @@ def crear_apuesta(
     usuario,
     cuota: Cuota,
     monto: Decimal,
+    cuota_esperada: Decimal,
     clave_idempotencia: uuid.UUID,
     ip_origen: str = None,
 ) -> Apuesta:
@@ -109,6 +111,12 @@ def crear_apuesta(
     _validar_monto(monto, mercado)
     _validar_saldo(usuario, monto)
 
+    if cuota.valor != cuota_esperada:
+        raise CuotaCambiadaError(
+            "La cuota ha cambiado. Por favor revisa la nueva cuota y confirma nuevamente.",
+            nueva_cuota=cuota.valor
+        )
+
     cuota_snapshot = cuota.valor
     pago_potencial = monto * cuota_snapshot
 
@@ -128,6 +136,9 @@ def crear_apuesta(
         id_transaccion=uuid.uuid5(clave_idempotencia, "bloqueo"),
         referencia_id=apuesta.id,
     )
+
+    apuesta.aceptar()
+    apuesta.save(update_fields=["estado"])
 
     return apuesta
 
@@ -298,6 +309,9 @@ def crear_apuesta_combinada(
         id_transaccion=uuid.uuid5(clave_idempotencia, "bloqueo_combinada"),
         referencia_id=combinada.id,
     )
+
+    combinada.aceptar()
+    combinada.save(update_fields=["estado"])
 
     return combinada
 

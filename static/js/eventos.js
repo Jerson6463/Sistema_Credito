@@ -54,8 +54,9 @@ function buildCuotaBtn(cuotaId, seleccion, label, valor, eventoNombre, mercadoTi
   const btn = document.createElement('div');
   btn.className = 'cuota-btn';
   btn.dataset.cuota = cuotaId;
-  btn.innerHTML = `<div class="qlabel">${label}</div><div class="qval">${parseFloat(valor).toFixed(2)}</div>`;
-  btn.addEventListener('click', () => addToBetslip(cuotaId, seleccion, parseFloat(valor), eventoNombre, mercadoTipo));
+  const numValor = parseFloat(String(valor).replace(',', '.'));
+  btn.innerHTML = `<div class="qlabel">${label}</div><div class="qval">${numValor.toFixed(2)}</div>`;
+  btn.addEventListener('click', () => addToBetslip(cuotaId, seleccion, numValor, eventoNombre, mercadoTipo));
   return btn;
 }
 

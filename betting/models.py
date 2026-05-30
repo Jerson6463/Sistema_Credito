@@ -207,7 +207,7 @@ class Apuesta(models.Model):
         verbose_name="Clave de idempotencia",
     )
     estado = FSMField(
-        default=EstadoApuesta.ACEPTADA,
+        default=EstadoApuesta.PENDIENTE,
         choices=EstadoApuesta.choices,
         protected=True,
         verbose_name="Estado",
@@ -225,6 +225,10 @@ class Apuesta(models.Model):
         ordering = ["-creado_en"]
 
     # ── Transiciones de estado ────────────────────────────────────────────────
+
+    @transition(field=estado, source=EstadoApuesta.PENDIENTE, target=EstadoApuesta.ACEPTADA)
+    def aceptar(self):
+        pass
 
     @transition(field=estado, source=EstadoApuesta.ACEPTADA, target=EstadoApuesta.GANADA)
     def marcar_ganada(self):
@@ -279,7 +283,7 @@ class ApuestaCombinada(models.Model):
     )
     clave_idempotencia = models.UUIDField(unique=True)
     estado = FSMField(
-        default=EstadoApuesta.ACEPTADA,
+        default=EstadoApuesta.PENDIENTE,
         choices=EstadoApuesta.choices,
         protected=True,
     )
@@ -289,6 +293,10 @@ class ApuestaCombinada(models.Model):
     class Meta:
         verbose_name = "Apuesta combinada"
         verbose_name_plural = "Apuestas combinadas"
+
+    @transition(field=estado, source=EstadoApuesta.PENDIENTE, target=EstadoApuesta.ACEPTADA)
+    def aceptar(self):
+        pass
 
     @transition(field=estado, source=EstadoApuesta.ACEPTADA, target=EstadoApuesta.GANADA)
     def marcar_ganada(self):

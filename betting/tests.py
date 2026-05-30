@@ -35,14 +35,21 @@ from betting.exceptions import (
 
 
 def crear_usuario_verificado(username="kelly_bet"):
-    return Usuario.objects.create_user(
+    u = Usuario.objects.create_user(
         username=username,
         email=f"{username}@test.com",
         password="pass1234",
-        dni="12345678",
+        dni=username[:8] if len(username) >= 8 else (username + "00000000")[:8],
         fecha_nacimiento=date(1995, 6, 15),
         estado="verificado",
     )
+    from users.models import LimiteJuego
+    LimiteJuego.objects.filter(usuario=u).update(
+        limite_diario=Decimal("50000.0000"),
+        limite_semanal=Decimal("50000.0000"),
+        limite_mensual=Decimal("50000.0000")
+    )
+    return u
 
 
 def crear_evento_programado():
@@ -121,7 +128,7 @@ class CrearApuestaValidacionesTest(TestCase):
         apuesta = crear_apuesta(
             usuario=self.usuario,
             cuota=self.cuota,
-            monto=Decimal("50.0000"),
+            monto=Decimal("50.0000"), cuota_esperada=self.cuota.valor,
             clave_idempotencia=uuid.uuid4(),
         )
         self.assertEqual(apuesta.estado, EstadoApuesta.ACEPTADA)
@@ -131,7 +138,7 @@ class CrearApuestaValidacionesTest(TestCase):
         crear_apuesta(
             usuario=self.usuario,
             cuota=self.cuota,
-            monto=Decimal("100.0000"),
+            monto=Decimal("100.0000"), cuota_esperada=self.cuota.valor,
             clave_idempotencia=uuid.uuid4(),
         )
         saldo_despues = obtener_saldo(self.usuario)
@@ -145,7 +152,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=usuario_no_verificado,
                 cuota=self.cuota,
-                monto=Decimal("10.0000"),
+                monto=Decimal("10.0000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -156,7 +163,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=self.usuario,
                 cuota=self.cuota,
-                monto=Decimal("10.0000"),
+                monto=Decimal("10.0000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -165,7 +172,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=self.usuario,
                 cuota=self.cuota,
-                monto=Decimal("9999.0000"),
+                monto=Decimal("600.0000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -174,7 +181,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=self.usuario,
                 cuota=self.cuota,
-                monto=Decimal("0.5000"),
+                monto=Decimal("0.5000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -184,7 +191,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=self.usuario,
                 cuota=self.cuota,
-                monto=Decimal("9999.0000"),
+                monto=Decimal("9999.0000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -194,7 +201,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=self.usuario,
                 cuota=self.cuota,
-                monto=Decimal("10.0000"),
+                monto=Decimal("10.0000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -205,7 +212,7 @@ class CrearApuestaValidacionesTest(TestCase):
             crear_apuesta(
                 usuario=self.usuario,
                 cuota=self.cuota,
-                monto=Decimal("10.0000"),
+                monto=Decimal("10.0000"), cuota_esperada=self.cuota.valor,
                 clave_idempotencia=uuid.uuid4(),
             )
 
@@ -213,11 +220,11 @@ class CrearApuestaValidacionesTest(TestCase):
         clave = uuid.uuid4()
         apuesta1 = crear_apuesta(
             usuario=self.usuario, cuota=self.cuota,
-            monto=Decimal("50.0000"), clave_idempotencia=clave,
+            monto=Decimal("50.0000"), cuota_esperada=self.cuota.valor, clave_idempotencia=clave,
         )
         apuesta2 = crear_apuesta(
             usuario=self.usuario, cuota=self.cuota,
-            monto=Decimal("50.0000"), clave_idempotencia=clave,
+            monto=Decimal("50.0000"), cuota_esperada=self.cuota.valor, clave_idempotencia=clave,
         )
         self.assertEqual(apuesta1.id, apuesta2.id)
 
@@ -231,7 +238,7 @@ class LiquidacionApuestaTest(TestCase):
         self.apuesta = crear_apuesta(
             usuario=self.usuario,
             cuota=self.cuota,
-            monto=Decimal("100.0000"),
+            monto=Decimal("100.0000"), cuota_esperada=self.cuota.valor,
             clave_idempotencia=uuid.uuid4(),
         )
 
@@ -243,7 +250,7 @@ class LiquidacionApuestaTest(TestCase):
         saldo_despues = obtener_saldo(self.usuario)
         payout_esperado = Decimal("100.0000") * Decimal("2.5000")
         self.assertEqual(saldo_despues - saldo_antes, payout_esperado)
-        self.apuesta.refresh_from_db()
+        self.apuesta = Apuesta.objects.get(pk=self.apuesta.pk)
         self.assertEqual(self.apuesta.estado, EstadoApuesta.GANADA)
 
     def test_liquidacion_perdedora_libera_fondos_a_casa(self):
@@ -253,7 +260,7 @@ class LiquidacionApuestaTest(TestCase):
         liquidar_apuesta(self.apuesta, resultado_ganador="visitante")
         saldo_despues = obtener_saldo(self.usuario)
         self.assertEqual(saldo_despues, saldo_antes)
-        self.apuesta.refresh_from_db()
+        self.apuesta = Apuesta.objects.get(pk=self.apuesta.pk)
         self.assertEqual(self.apuesta.estado, EstadoApuesta.PERDIDA)
 
     def test_no_se_puede_liquidar_dos_veces(self):
@@ -268,7 +275,7 @@ class LiquidacionApuestaTest(TestCase):
         anular_apuesta(self.apuesta)
         saldo_despues = obtener_saldo(self.usuario)
         self.assertEqual(saldo_despues - saldo_antes, Decimal("100.0000"))
-        self.apuesta.refresh_from_db()
+        self.apuesta = Apuesta.objects.get(pk=self.apuesta.pk)
         self.assertEqual(self.apuesta.estado, EstadoApuesta.ANULADA)
 
 
@@ -285,7 +292,7 @@ class PagoCalculadoTest(TestCase):
         apuesta = crear_apuesta(
             usuario=self.usuario,
             cuota=self.cuota,
-            monto=Decimal("100.0000"),
+            monto=Decimal("100.0000"), cuota_esperada=self.cuota.valor,
             clave_idempotencia=uuid.uuid4(),
         )
         self.assertEqual(
@@ -298,13 +305,13 @@ class PagoCalculadoTest(TestCase):
         apuesta = crear_apuesta(
             usuario=self.usuario,
             cuota=self.cuota,
-            monto=Decimal("50.0000"),
+            monto=Decimal("50.0000"), cuota_esperada=self.cuota.valor,
             clave_idempotencia=uuid.uuid4(),
         )
         # Simular cambio de cuota posterior
         self.cuota.valor = Decimal("9.9999")
         self.cuota.save()
-        apuesta.refresh_from_db()
+        apuesta = Apuesta.objects.get(pk=apuesta.pk)
         self.assertEqual(apuesta.cuota_al_apostar, valor_original)
 
 
@@ -365,7 +372,7 @@ class CashOutTest(TestCase):
         self.apuesta = crear_apuesta(
             usuario=self.usuario,
             cuota=self.cuota,
-            monto=Decimal("100.0000"),
+            monto=Decimal("100.0000"), cuota_esperada=self.cuota.valor,
             clave_idempotencia=uuid.uuid4(),
         )
 
@@ -387,7 +394,7 @@ class CashOutTest(TestCase):
         from betting.services import hacer_cash_out
         from betting.models import EstadoApuesta
         hacer_cash_out(self.apuesta, factor_casa=Decimal("0.9000"))
-        self.apuesta.refresh_from_db()
+        self.apuesta = Apuesta.objects.get(pk=self.apuesta.pk)
         self.assertEqual(self.apuesta.estado, EstadoApuesta.CASH_OUT)
 
     def test_cash_out_sobre_apuesta_liquidada_lanza_error(self):
